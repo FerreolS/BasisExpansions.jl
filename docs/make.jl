@@ -3,7 +3,7 @@ using Pkg
 Pkg.develop(PackageSpec(path = dirname(@__DIR__)))
 
 using Documenter
-using NonLocalMeans
+using BasisExpansions
 
 makedocs(
     modules = [BasisExpansions],
