@@ -1,0 +1,75 @@
+name: Test
+
+on:
+  push:
+    branches:
+      - master
+    tags: [ "*" ]
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  test:
+    uses: ./.github/workflows/ReusableTest.yml
+    with:
+      os: ${{ matrix.os }}
+      version: ${{ matrix.version }}
+      arch: ${{ matrix.arch }}
+      allow_failure: ${{ matrix.allow_failure }}
+      run_codecov: ${{ matrix.version == '1' && matrix.os == 'ubuntu-latest' }}
+    secrets:
+      codecov_token: ${{ secrets.CODECOV_TOKEN }}
+    strategy:
+      fail-fast: false
+      matrix:
+        version:
+          - "lts"
+          - "1"
+        os:
+          - ubuntu-latest
+
+        arch:
+          - x64
+        allow_failure: [ false ]
+        include:
+          - version: "nightly"
+            os: ubuntu-latest
+            arch: x64
+            allow_failure: true
+  Aqua:
+    name: Aqua tests
+    runs-on: ubuntu-latest
+    permissions:
+      # needed to allow julia-actions/cache to proactively delete old caches that it has created
+      actions: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: "1"
+      - uses: julia-actions/cache@v3
+      - run: julia --project=test --color=yes -e 'using Pkg; Pkg.instantiate()'
+      - run: julia --project=test --color=yes -e 'using Aqua, BasisExpansions;
+          Aqua.test_all(BasisExpansions)'
+  dependabot:
+    needs: [ test, Aqua ]
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: write
+    if: ${{ github.actor == 'dependabot[bot]' && github.event_name ==
+      'pull_request'}}
+    steps:
+      - id: metadata
+        uses: dependabot/fetch-metadata@v3
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+      - run: |
+          gh pr review --approve "$PR_URL"
+          gh pr merge --squash --auto "$PR_URL"
+        env:
+          PR_URL: ${{github.event.pull_request.html_url}}
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
