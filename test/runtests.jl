@@ -4,6 +4,7 @@ using Optimisers
 using SparseArrays
 using Test
 
+using BasisExpansions: get_coefficients, set_coefficients!, polynomial_representation, complex_polynomial_representation
 @testset "BasisExpansion" begin
     knots = 0.0f0:0.5f0:4.0f0
     basis = hcat([knots .^ n for n in 0:2]...)

@@ -4,11 +4,27 @@ using LinearAlgebra
 using Optimisers
 using TypeUtils: get_precision
 
-export BasisExpansion,
-    complex_polynomial_representation,
-    get_coefficients,
-    polynomial_representation,
-    set_coefficients!
+export BasisExpansion
+
+if VERSION >= v"1.11"
+    Core.eval(
+        @__MODULE__, Expr(
+            :public,
+            :polynomial_representation,
+            :complex_polynomial_representation,
+            :get_coefficients,
+            :set_coefficients!
+
+        )
+    )
+else
+    @eval begin
+        export polynomial_representation,
+            complex_polynomial_representation,
+            get_coefficients,
+            set_coefficients!
+    end
+end
 
 """
     BasisExpansion(basis, coefs; precond = nothing)
@@ -140,8 +156,8 @@ function polynomial_representation(knots::AbstractVector{T}, degree::Integer; pr
     all(isfinite, knots) || throw(ArgumentError("knots must be finite"))
     mink = minimum(knots)
     knots = knots .- mink
-    basis = broadcast(^, knots, (0:(degree - 1))')
-    coefs = zeros(T, degree)
+    basis = broadcast(^, knots, (0:(degree))')
+    coefs = zeros(T, degree + 1)
     coefs[1] = mink
     degree >= 2 && (coefs[2] = one(T))
     return BasisExpansion(basis, coefs; precond)
