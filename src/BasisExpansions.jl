@@ -1,3 +1,16 @@
+"""
+    BasisExpansions
+
+Represent values as linear combinations of basis vectors with trainable
+coefficients. [`BasisExpansion`](@ref) evaluates a basis matrix and its
+coefficients as an `AbstractArray`, with optional column-scaling or QR
+preconditioning.
+
+Use [`get_coefficients`](@ref) and [`set_coefficients!`](@ref) to access or
+update coefficients in the original basis. [`polynomial_representation`](@ref)
+and [`complex_polynomial_representation`](@ref) construct polynomial
+expansions evaluated at supplied points.
+"""
 module BasisExpansions
 
 using LinearAlgebra
@@ -29,19 +42,19 @@ end
 """
     BasisExpansion(basis, coefs; precond = nothing)
 
-Represent `basis * coefs` using trainable coefficients, optionally in
-preconditioned coordinates. The input `coefs` are coefficients of the
-original basis. Use [`get_coefficients`](@ref) to recover original-basis
-coefficients after optimization.
+Construct an array-like representation of `basis * coefs` with trainable
+coefficients. The input `coefs` are interpreted in the original basis.
 
-With `precond = :column_scaling`, each basis column is scaled to have unit
-root mean square. With `precond = :qr`, the columns are orthonormalized using
-a thin QR factorization of a dense copy; the basis must have full column rank.
-All methods reject nonfinite inputs and empty dimensions. Column scaling also
-rejects zero columns. Inputs must use one-based indexing.
+Set `precond` to `:column_scaling` to scale each basis column to unit
+root-mean-square norm, or to `:qr` to use a thin QR factorization of a dense
+copy of the basis. QR preconditioning requires full column rank. The default,
+`nothing`, leaves the basis unchanged.
 
-The representation behaves as an `AbstractArray` with the element type of
-`basis * coefs` and the row axis of `basis`.
+The resulting `BasisExpansion` behaves as an `AbstractArray` with the element
+type of `basis * coefs` and the row axis of `basis`. Inputs must have one-based
+indices, nonempty dimensions, and finite entries. Column scaling also requires
+nonzero basis columns. Use [`get_coefficients`](@ref) to retrieve coefficients
+in the original basis after optimization.
 """
 struct BasisExpansion{T, N, B, C, P} <: AbstractArray{T, N}
     basis::B
@@ -129,8 +142,9 @@ Optimisers.trainable(self::BasisExpansion) = (; coefs = self.coefs)
 """
     get_coefficients(representation)
 
-Return the coefficients of the original basis. For a preconditioned
-representation, these are computed from its current trainable coefficients.
+Return the coefficients in the original basis. For a preconditioned
+representation, convert its current trainable coefficients back to the
+original basis.
 """
 get_coefficients(self::BasisExpansion) = self.coefs
 get_coefficients(self::BasisExpansion{T, N, B, C, <:AbstractVector}) where {T, N, B, C} =
@@ -141,8 +155,9 @@ get_coefficients(self::BasisExpansion{T, N, B, C, <:AbstractMatrix}) where {T, N
 """
     set_coefficients!(representation, coefs)
 
-Set the coefficients of the representation. For a preconditioned
-representation, the coefficients are transformed to the preconditioned space.
+Set the coefficients in the original basis and return `representation`.
+For a preconditioned representation, convert them to the preconditioned
+coordinates before updating its trainable coefficients.
 """
 set_coefficients!(self::BasisExpansion, coefs) = (self.coefs .= coefs; self)
 set_coefficients!(self::BasisExpansion{T, N, B, C, <:AbstractVector}, coefs) where {T, N, B, C} =
@@ -150,31 +165,57 @@ set_coefficients!(self::BasisExpansion{T, N, B, C, <:AbstractVector}, coefs) whe
 set_coefficients!(self::BasisExpansion{T, N, B, C, <:AbstractMatrix}, coefs) where {T, N, B, C} =
     (self.coefs .= self.transform * coefs; self)
 
-function polynomial_representation(knots::AbstractVector{T}, degree::Integer; precond = :qr) where {T <: AbstractFloat}
+"""
+    polynomial_representation(evaluation_points, degree; precond = :qr)
+
+Construct a polynomial [`BasisExpansion`](@ref) evaluated at the values in
+`evaluation_points`, using powers from zero through `degree` of the points
+shifted by their minimum. The coefficient vector has `degree + 1` entries;
+its constant coefficient is initialized to the minimum evaluation point, and
+its linear coefficient is initialized to one when `degree >= 2`.
+
+`evaluation_points` must be nonempty and finite. `degree` must be positive
+and no greater than the number of evaluation points. `precond` selects the
+preconditioning method used by [`BasisExpansion`](@ref).
+"""
+function polynomial_representation(evaluation_points::AbstractVector{T}, degree::Integer; precond = :qr) where {T <: AbstractFloat}
     degree > 0 || throw(ArgumentError("degree must be positive"))
-    degree <= length(knots) || throw(ArgumentError("degree must be less than or equal to the number of knots"))
-    all(isfinite, knots) || throw(ArgumentError("knots must be finite"))
-    mink = minimum(knots)
-    knots = knots .- mink
-    basis = broadcast(^, knots, (0:(degree))')
+    degree <= length(evaluation_points) || throw(ArgumentError("degree must be less than or equal to the number of evaluation points"))
+    all(isfinite, evaluation_points) || throw(ArgumentError("evaluation points must be finite"))
+    minx = minimum(evaluation_points)
+    shifted_points = evaluation_points .- minx
+    basis = broadcast(^, shifted_points, (0:(degree))')
     coefs = zeros(T, degree + 1)
-    coefs[1] = mink
+    coefs[1] = minx
     degree >= 2 && (coefs[2] = one(T))
     return BasisExpansion(basis, coefs; precond)
 end
 
-function complex_polynomial_representation(knots::AbstractVector{T}, degree::Integer; precond = :qr) where {T <: AbstractFloat}
+"""
+    complex_polynomial_representation(evaluation_points, degree; precond = :qr)
+
+Construct a complex-valued polynomial [`BasisExpansion`](@ref) evaluated at
+the values in `evaluation_points`. Its basis contains powers from zero
+through `degree` of the points shifted by their minimum, along with the
+corresponding imaginary basis columns. The coefficient vector has
+`2 * (degree + 1)` real entries.
+
+`evaluation_points` must be nonempty and finite. `degree` must be positive
+and no greater than the number of evaluation points. `precond` selects the
+preconditioning method used by [`BasisExpansion`](@ref).
+"""
+function complex_polynomial_representation(evaluation_points::AbstractVector{T}, degree::Integer; precond = :qr) where {T <: AbstractFloat}
     degree > 0 || throw(ArgumentError("degree must be positive"))
-    degree <= length(knots) || throw(ArgumentError("degree must be less than or equal to the number of knots"))
-    all(isfinite, knots) || throw(ArgumentError("knots must be finite"))
-    mink = minimum(knots)
-    knots = knots .- mink
-    basis = broadcast(^, Complex.(knots), (0:degree)')
+    degree <= length(evaluation_points) || throw(ArgumentError("degree must be less than or equal to the number of evaluation points"))
+    all(isfinite, evaluation_points) || throw(ArgumentError("evaluation points must be finite"))
+    minx = minimum(evaluation_points)
+    shifted_points = evaluation_points .- minx
+    basis = broadcast(^, Complex.(shifted_points), (0:degree)')
     basis = hcat(basis, im .* basis)
 
     coefs = zeros(T, 2 * (degree + 1))
-    coefs[1] = mink
-    coefs[2] = mink
+    coefs[1] = minx
+    coefs[2] = minx
     coefs[3] = one(T)
     coefs[4] = one(T)
     return BasisExpansion(basis, coefs; precond)

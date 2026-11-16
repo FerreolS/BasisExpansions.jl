@@ -6,8 +6,8 @@ using Test
 
 using BasisExpansions: get_coefficients, set_coefficients!, polynomial_representation, complex_polynomial_representation
 @testset "BasisExpansion" begin
-    knots = 0.0f0:0.5f0:4.0f0
-    basis = hcat([knots .^ n for n in 0:2]...)
+    evaluation_points = 0.0f0:0.5f0:4.0f0
+    basis = hcat([evaluation_points .^ n for n in 0:2]...)
     coefs = Float32[0, 0.1, 0.1]
     original = BasisExpansion(basis, coefs)
 
@@ -54,7 +54,7 @@ using BasisExpansions: get_coefficients, set_coefficients!, polynomial_represent
     end
 
     @test polynomial_representation(Float32[2, 3, 4], 1; precond = nothing)() == fill(2.0f0, 3)
-    @test polynomial_representation(knots, 3)() ≈ knots
+    @test polynomial_representation(evaluation_points, 3)() ≈ evaluation_points
     @test_throws ArgumentError BasisExpansion(ones(Float32, 2, 3), coefs; precond = :qr)
     @test_throws ArgumentError BasisExpansion(ones(Float32, 3, 2), Float32[1, 2]; precond = :qr)
     @test_throws ArgumentError BasisExpansion(zeros(Float32, 3, 1), Float32[1]; precond = :column_scaling)

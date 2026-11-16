@@ -16,7 +16,7 @@ complex polynomial constructors.
 using BasisExpansions
 
 x = range(0, 1; length = 20)
-model = polynomial_representation(collect(x), 3)
-values = model()
-coefs = get_coefficients(model)
+model = BasisExpansions.polynomial_representation(x, 3)
+values = collect(model)
+coefs = BasisExpansions.get_coefficients(model)
 ```
