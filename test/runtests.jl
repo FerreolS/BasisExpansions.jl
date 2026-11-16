@@ -16,6 +16,7 @@ using BasisExpansions: get_coefficients, set_coefficients!, polynomial_represent
     @test axes(original) == (axes(basis, 1),)
     @test original[2] ≈ original()[2]
     @test sin.(original) ≈ sin.(original())
+    @test collect(original) ≈ original()
 
     complex_basis = ComplexF32[1 0; im 1; 2 - im 0.5im]
     complex_coefs = Float32[0.5, -0.25]
@@ -61,4 +62,19 @@ using BasisExpansions: get_coefficients, set_coefficients!, polynomial_represent
     @test_throws "basis columns must match the number of coefs" BasisExpansion(basis, coefs[1:2])
     @test_throws "basis must have nonempty dimensions" BasisExpansion(zeros(Float32, 0, 1), Float32[1])
     @test_throws "basis and coefs must be finite" BasisExpansion(basis, Float32[0, NaN, 0])
+
+    unconditioned = BasisExpansion(basis, copy(coefs))
+    updated_coefs = Float32[0.2, -0.3, 0.4]
+    @test set_coefficients!(unconditioned, updated_coefs) === unconditioned
+    @test get_coefficients(unconditioned) ≈ updated_coefs
+
+    complex_points = Float32[2, 3, 4]
+    shifted_points = complex_points .- minimum(complex_points)
+    complex_polynomial = complex_polynomial_representation(
+        complex_points, 1; precond = nothing
+    )
+    set_coefficients!(complex_polynomial, Float32[0, 1, 0, 0])
+    @test complex_polynomial() ≈ complex.(shifted_points, zero.(shifted_points))
+    set_coefficients!(complex_polynomial, Float32[0, 0, 0, 1])
+    @test complex_polynomial() ≈ complex.(zero.(shifted_points), shifted_points)
 end
