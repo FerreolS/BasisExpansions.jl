@@ -1,0 +1,21 @@
+name = "BasisExpansions"
+uuid = "a41b1b2e-50db-4c8d-b485-370f41d05741"
+version = "0.1.0"
+authors = ["Ferreol Soulez"]
+
+[deps]
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Optimisers = "3bd65402-5787-11e9-1adc-39752487f4e2"
+TypeUtils = "c3b1956e-8857-4d84-9b79-890df85b1e67"
+
+[compat]
+Optimisers = "0.4"
+TypeUtils = "1.14"
+julia = "1.10"
+
+[extras]
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["SparseArrays", "Test"]
