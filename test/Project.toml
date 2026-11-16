@@ -1,0 +1,17 @@
+[deps]
+Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
+BasisExpansions = "a41b1b2e-50db-4c8d-b485-370f41d05741"
+ExplicitImports = "7d51a73a-1435-4ff3-83d9-f097790105c7"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Optimisers = "3bd65402-5787-11e9-1adc-39752487f4e2"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[sources]
+BasisExpansions = {path = ".."}
+
+[compat]
+Aqua = "0.8"
+ExplicitImports = "1"
+Test = "1"
+julia = "1.10"
