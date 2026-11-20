@@ -83,17 +83,6 @@ Base.getindex(self::BasisExpansion, indices...) =
 Base.IndexStyle(::Type{<:BasisExpansion}) = IndexCartesian()
 Base.broadcastable(self::BasisExpansion) = self()
 
-Optimisers.isnumeric(::BasisExpansion) = false
-function Optimisers.functor(
-        ::Type{BasisExpansion{T, N, B, C, P}}, self
-    ) where {T, N, B, C, P}
-    fields = (; basis = self.basis, coefs = self.coefs, transform = self.transform)
-    reconstruct(fields) = BasisExpansion{T, N, B, C, P}(
-        fields.basis, fields.coefs, fields.transform
-    )
-    return fields, reconstruct
-end
-
 function BasisExpansion(
         basis::AbstractMatrix{T1}, coefs::AbstractVector{T2};
         precond = nothing
