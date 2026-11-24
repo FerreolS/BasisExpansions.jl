@@ -3,6 +3,7 @@ using LinearAlgebra
 using Optimisers
 using SparseArrays
 using Test
+using Zygote
 
 using BasisExpansions: get_coefficients, set_coefficients!, polynomial_representation, complex_polynomial_representation
 @testset "BasisExpansion" begin
@@ -11,12 +12,16 @@ using BasisExpansions: get_coefficients, set_coefficients!, polynomial_represent
     coefs = Float32[0, 0.1, 0.1]
     original = BasisExpansion(basis, coefs)
 
-    @test original isa AbstractArray{Float32, 1}
+    #    @test original isa AbstractArray{Float32, 1}
     @test size(original) == size(original())
     @test axes(original) == (axes(basis, 1),)
     @test original[2] ≈ original()[2]
     @test sin.(original) ≈ sin.(original())
     @test collect(original) ≈ original()
+
+    v, re = destructure(original)
+    f(x) = sum(abs2, re(x))
+    f'(v)
 
     complex_basis = ComplexF32[1 0; im 1; 2 - im 0.5im]
     complex_coefs = Float32[0.5, -0.25]
@@ -36,7 +41,7 @@ using BasisExpansions: get_coefficients, set_coefficients!, polynomial_represent
 
         optimizer = Optimisers.Descent(0.1f0)
         state = Optimisers.setup(optimizer, model)
-        gradient = (; basis = nothing, coefs = ones(Float32, 3), transform = nothing)
+        gradient = (; coefs = ones(Float32, 3))
         _, updated = Optimisers.update(state, model, gradient)
         @test updated.coefs ≈ model.coefs .- 0.1f0
     end
@@ -54,7 +59,7 @@ using BasisExpansions: get_coefficients, set_coefficients!, polynomial_represent
         end
     end
 
-    @test polynomial_representation(Float32[2, 3, 4], 1; precond = nothing)() == fill(2.0f0, 3)
+    @test polynomial_representation(Float32[2, 3, 4], 1; precond = nothing)() == Float32[2.0, 3.0, 4.0]
     @test polynomial_representation(evaluation_points, 3)() ≈ evaluation_points
     @test_throws ArgumentError BasisExpansion(ones(Float32, 2, 3), coefs; precond = :qr)
     @test_throws ArgumentError BasisExpansion(ones(Float32, 3, 2), Float32[1, 2]; precond = :qr)

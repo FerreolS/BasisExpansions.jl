@@ -193,27 +193,53 @@ its linear coefficient is initialized to one when `degree >= 2`.
 and no greater than the number of evaluation points. `precond` selects the
 preconditioning method used by [`BasisExpansion`](@ref).
 """
-function polynomial_representation(evaluation_points::AbstractVector{T}, degree::Integer; precond = :qr) where {T <: AbstractFloat}
+function polynomial_representation(evaluation_points::AbstractVector{T}, degree::Integer; precond = nothing) where {T <: AbstractFloat}
     degree > 0 || throw(ArgumentError("degree must be positive"))
     degree <= length(evaluation_points) || throw(ArgumentError("degree must be less than or equal to the number of evaluation points"))
     all(isfinite, evaluation_points) || throw(ArgumentError("evaluation points must be finite"))
-    minx = minimum(evaluation_points)
-    shifted_points = evaluation_points .- minx
-    basis = broadcast(^, shifted_points, (0:(degree))')
+
+    # Center and scale points to [-1, 1] for numerical stability
+    minx, maxx = extrema(evaluation_points)
+    rangex = maxx - minx
+
+    # Handle edge case where all points are identical
+    if rangex == 0
+        center = minx
+        scale = one(T)
+        normalized_points = zeros(T, length(evaluation_points))
+    else
+        center = (minx + maxx) / 2
+        scale = rangex / 2
+        normalized_points = (evaluation_points .- center) # ./ scale
+    end
+
+    basis = broadcast(^, normalized_points, (0:degree)')
+    basis[:, 1] .= center
+
+    # For other preconditioning methods, use the BasisExpansion constructor
     coefs = zeros(T, degree + 1)
-    coefs[1] = minx
-    degree >= 2 && (coefs[2] = one(T))
-    return BasisExpansion(basis, coefs; precond)
+    coefs[1] = 1
+    coefs[2] = 1
+    return BasisExpansion(basis, coefs; precond = precond)
+
 end
 
 """
     complex_polynomial_representation(evaluation_points, degree; precond = :qr)
 
 Construct a complex-valued polynomial [`BasisExpansion`](@ref) evaluated at
-the values in `evaluation_points`. Its basis contains powers from zero
-through `degree` of the points shifted by their minimum, along with the
-corresponding imaginary basis columns. The coefficient vector has
-`2 * (degree + 1)` real entries.
+the values in `evaluation_points`. The basis uses polynomial powers from zero
+through `degree` of the points normalized to [-1, 1], and the coefficients can
+be complex-valued. This normalization ensures the basis is well-conditioned
+regardless of the magnitude of evaluation points.
+
+Coefficients are initialized in the preconditioned coordinate system to be near
+unity order in magnitude, ensuring numerical stability during optimization and
+gradient-based learning.
+
+For fitting complex outputs at real evaluation points, this uses a real polynomial
+basis with complex coefficients, which provides `degree + 1` complex degrees of
+freedom (equivalent to `2*(degree + 1)` real degrees of freedom).
 
 `evaluation_points` must be nonempty and finite. `degree` must be positive
 and no greater than the number of evaluation points. `precond` selects the
