@@ -57,7 +57,7 @@ indices, nonempty dimensions, and finite entries. Column scaling also requires
 nonzero basis columns. Use [`get_coefficients`](@ref) to retrieve coefficients
 in the original basis after optimization.
 """
-struct BasisExpansion{T, N, B, C, P} <: AbstractArray{T, N}
+struct BasisExpansion{T, N, B, C, P} #<: AbstractArray{T, N}
     basis::B
     coefs::C
     transform::P
@@ -80,11 +80,34 @@ end
 @functor BasisExpansion (coefs,)
 
 Base.size(self::BasisExpansion) = (size(self.basis, 1), size(self.coefs)[2:end]...)
+Base.size(self::BasisExpansion, d::Integer) = size(self)[d]
 Base.axes(self::BasisExpansion) = (axes(self.basis, 1), axes(self.coefs)[2:end]...)
+Base.ndims(::BasisExpansion{T, N}) where {T, N} = N
+Base.length(self::BasisExpansion) = size(self, 1)
 Base.getindex(self::BasisExpansion, indices...) =
     transpose(@view self.basis[indices[1], :]) * @view self.coefs[:, indices[2:end]...]
 Base.IndexStyle(::Type{<:BasisExpansion}) = IndexCartesian()
 Base.broadcastable(self::BasisExpansion) = self()
+Base.eltype(::BasisExpansion{T}) where {T} = T
+
+function Base.iterate(self::BasisExpansion)
+    isempty(self.basis) && return nothing
+    idx = ntuple(_ -> Colon(), ndims(self) - 1)
+    return self[1, idx...], 1
+end
+
+function Base.iterate(self::BasisExpansion, state::Int)
+    state >= size(self, 1) && return nothing
+    nextstate = state + 1
+    idx = ntuple(_ -> Colon(), ndims(self) - 1)
+    return self[nextstate, idx...], nextstate
+end
+
+Base.:*(A::BasisExpansion, x) = A.basis * (A.coefs * x)
+Base.:*(x, A::BasisExpansion) = x * (A.basis * A.coefs)
+Broadcast.broadcasted(::typeof(*), B, A::BasisExpansion) = B .* (A.basis * A.coefs)
+Broadcast.broadcasted(::typeof(*), A::BasisExpansion, B) = A.basis .* (A.coefs * B)
+
 
 function BasisExpansion(
         basis::AbstractMatrix{T1}, coefs::AbstractVector{T2};
@@ -129,7 +152,7 @@ function BasisExpansion(::Val{:qr}, basis::AbstractMatrix, coefs::AbstractVector
 end
 
 ((; basis, coefs)::BasisExpansion)() = basis * coefs
-Optimisers.trainable(self::BasisExpansion) = (; coefs = self.coefs)
+#Optimisers.trainable(self::BasisExpansion) = (; coefs = self.coefs)
 
 """
     get_coefficients(representation)
