@@ -16,6 +16,7 @@ module BasisExpansions
 using LinearAlgebra
 using Optimisers
 using TypeUtils: get_precision
+using Functors: @functor
 
 export BasisExpansion
 
@@ -75,6 +76,8 @@ struct BasisExpansion{T, N, B, C, P} <: AbstractArray{T, N}
         return BasisExpansion{T, N, B, C, P}(basis, coefs, transform)
     end
 end
+
+@functor BasisExpansion (coefs,)
 
 Base.size(self::BasisExpansion) = (size(self.basis, 1), size(self.coefs)[2:end]...)
 Base.axes(self::BasisExpansion) = (axes(self.basis, 1), axes(self.coefs)[2:end]...)
